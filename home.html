@@ -1,46 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Home</title>
+    <title>Nama Folder Real-time</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input {
+            padding: 5px;
+            font-size: 16px;
+        }
+        #output {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: blue;
+        }
+    </style>
 </head>
 <body>
-    <h1 id="welcome"></h1>
-    <p id="timer"></p>
-    <button onclick="logout()">Logout</button>
+
+    <h2>Buat Nama Folder</h2>
+    <label for="inputNama">Masukkan Nama: </label>
+    <input type="text" id="inputNama" placeholder="Masukkan nama...">
+
+    <div id="output"></div>
 
     <script>
-        const username = localStorage.getItem("username");
-        const tokenExp = localStorage.getItem("token_exp");
+        const inputNama = document.getElementById("inputNama");
+        const output = document.getElementById("output");
 
-        // Jika tidak login atau token habis, kembali ke login
-        if (!username || !tokenExp || Date.now() / 1000 >= tokenExp) {
-            localStorage.clear();
-            window.location.href = "index.html";
+        // Fungsi untuk mendapatkan format date seperti 250824-1804
+        function getFormattedDateTime() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(-2);
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            return `${day}${month}${year}-${hours}${minutes}`;
         }
 
-        document.getElementById("welcome").innerText = `Selamat datang, ${username}!`;
-
-        function updateTimer() {
-            const now = Date.now() / 1000;
-            const remaining = Math.max(0, tokenExp - now);
-            const minutes = Math.floor(remaining / 60);
-            const seconds = Math.floor(remaining % 60);
-            document.getElementById("timer").innerText =
-                `Sesi login berakhir dalam ${minutes} menit ${seconds} detik`;
-            if (remaining <= 0) {
-                alert("Sesi habis, silakan login lagi.");
-                logout();
-            }
+        function updateNamaFolder() {
+            const nama = inputNama.value || "default";
+            const date = getFormattedDateTime();
+            const namafolder = `${nama}_${date}`;
+            output.textContent = namafolder;
         }
 
-        setInterval(updateTimer, 1000);
-        updateTimer();
+        // Update setiap kali ketik + setiap menit berubah
+        inputNama.addEventListener("input", updateNamaFolder);
+        setInterval(updateNamaFolder, 1000); // Update tiap detik biar real-time
 
-        function logout() {
-            localStorage.clear();
-            window.location.href = "index.html";
-        }
+        // Jalankan pertama kali
+        updateNamaFolder();
     </script>
+
 </body>
 </html>
