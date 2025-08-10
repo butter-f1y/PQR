@@ -1,26 +1,37 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test GitHub Pages</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 50px;
-            background: #f4f4f4;
-        }
-        h1 {
-            color: #333;
-        }
-        p {
-            color: #555;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Login dengan Google</title>
+  <meta name="google-signin-client_id" content="PASTE_CLIENT_ID_DISINI.apps.googleusercontent.com">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <h1>Halo! 🎉</h1>
-    <p>Jika kamu bisa membaca ini, berarti GitHub Pages kamu sudah berjalan.</p>
+  <h1>Login dengan Google</h1>
+  
+  <div id="g_id_onload"
+       data-client_id="PASTE_CLIENT_ID_DISINI.apps.googleusercontent.com"
+       data-context="signin"
+       data-ux_mode="popup"
+       data-callback="handleCredentialResponse"
+       data-auto_prompt="false">
+  </div>
+
+  <div class="g_id_signin"
+       data-type="standard"
+       data-shape="rectangular"
+       data-theme="outline"
+       data-text="signin_with"
+       data-size="large"
+       data-logo_alignment="left">
+  </div>
+
+  <script>
+    function handleCredentialResponse(response) {
+      console.log("Token JWT Google:", response.credential);
+      alert("Login Berhasil!\nToken: " + response.credential);
+      // Di sini kamu bisa kirim token ke server untuk verifikasi
+    }
+  </script>
 </body>
 </html>
