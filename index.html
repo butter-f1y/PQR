@@ -1,37 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Login dengan Google</title>
-  <meta name="google-signin-client_id" content="PASTE_CLIENT_ID_DISINI.apps.googleusercontent.com">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta charset="UTF-8">
+    <title>Login Google</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <h1>Login dengan Google</h1>
-  
-  <div id="g_id_onload"
-       data-client_id="467157335269-je34uq2r49jupptvgcg0s2i4kpd5h2q0.apps.googleusercontent.com"
-       data-context="signin"
-       data-ux_mode="popup"
-       data-callback="handleCredentialResponse"
-       data-auto_prompt="false">
-  </div>
+    <h2>Login dengan Google</h2>
+    <div id="g_id_onload"
+         data-client_id="467157335269-je34uq2r49jupptvgcg0s2i4kpd5h2q0.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+         data-type="standard"
+         data-size="large"
+         data-theme="outline"
+         data-text="sign_in_with"
+         data-shape="rect"
+         data-logo_alignment="left">
+    </div>
 
-  <div class="g_id_signin"
-       data-type="standard"
-       data-shape="rectangular"
-       data-theme="outline"
-       data-text="signin_with"
-       data-size="large"
-       data-logo_alignment="left">
-  </div>
+    <script>
+        function handleCredentialResponse(response) {
+            const jwt = response.credential;
 
-  <script>
-    function handleCredentialResponse(response) {
-      console.log("Token JWT Google:", response.credential);
-      alert("Login Berhasil!\nToken: " + response.credential);
-      // Di sini kamu bisa kirim token ke server untuk verifikasi
-    }
-  </script>
+            // Decode JWT untuk ambil nama pengguna
+            const payload = JSON.parse(atob(jwt.split('.')[1]));
+            const userName = payload.name;
+
+            // Simpan ke localStorage
+            localStorage.setItem('username', userName);
+
+            // Redirect ke halaman home
+            window.location.href = "home.html";
+        }
+    </script>
 </body>
 </html>
+
