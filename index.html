@@ -6,36 +6,36 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <h2>Login dengan Google</h2>
+    <h1>Login ke Google</h1>
     <div id="g_id_onload"
-         data-client_id="467157335269-je34uq2r49jupptvgcg0s2i4kpd5h2q0.apps.googleusercontent.com"
-         data-callback="handleCredentialResponse"
-         data-auto_prompt="false">
+        data-client_id="YOUR_GOOGLE_CLIENT_ID"
+        data-context="signin"
+        data-ux_mode="popup"
+        data-callback="handleCredentialResponse"
+        data-auto_prompt="false">
     </div>
-    <div class="g_id_signin"
-         data-type="standard"
-         data-size="large"
-         data-theme="outline"
-         data-text="sign_in_with"
-         data-shape="rect"
-         data-logo_alignment="left">
-    </div>
+    <div class="g_id_signin" data-type="standard"></div>
 
     <script>
         function handleCredentialResponse(response) {
-            const jwt = response.credential;
+            // Decode JWT untuk ambil nama & waktu kedaluwarsa
+            const base64Url = response.credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedData = JSON.parse(atob(base64));
 
-            // Decode JWT untuk ambil nama pengguna
-            const payload = JSON.parse(atob(jwt.split('.')[1]));
-            const userName = payload.name;
+            // Simpan di localStorage
+            localStorage.setItem("username", decodedData.name);
+            localStorage.setItem("token_exp", decodedData.exp); // dalam detik Unix
 
-            // Simpan ke localStorage
-            localStorage.setItem('username', userName);
+            // Redirect ke home
+            window.location.href = "home.html";
+        }
 
-            // Redirect ke halaman home
+        // Jika sudah login, langsung ke home
+        const exp = localStorage.getItem("token_exp");
+        if (exp && Date.now() / 1000 < exp) {
             window.location.href = "home.html";
         }
     </script>
 </body>
 </html>
-
