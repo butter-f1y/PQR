@@ -1,60 +1,128 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>Home</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        input {
-            padding: 5px;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-        p {
-            font-size: 16px;
-            margin-top: 10px;
-        }
-        span {
-            font-weight: bold;
-            color: blue;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>Folder Checker dengan Masa Berlaku 1 Jam</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+  input, button {
+    padding: 8px;
+    font-size: 16px;
+    margin-top: 10px;
+  }
+  #status {
+    margin-top: 15px;
+    font-weight: bold;
+  }
+  #folderPreview {
+    margin-top: 10px;
+    font-size: 18px;
+    color: blue;
+  }
+</style>
 </head>
 <body>
-    <h2>Buat Nama Folder</h2>
-    <input type="text" id="nameInput" placeholder="Masukkan nama..." />
 
-    <p id="folderPreview">
-        nanti nama foldernya jadi : <span id="folderName"></span>
-    </p>
+<h2>Buat dan Cek Nama Folder</h2>
 
-    <script>
-        const nameInput = document.getElementById('nameInput');
-        const folderNameSpan = document.getElementById('folderName');
+<label for="inputNama">Masukkan nama folder:</label><br />
+<input type="text" id="inputNama" placeholder="Masukkan nama..." autocomplete="off" />
+<p id="folderPreview"></p>
+<p id="status"></p>
+<button id="saveBtn" disabled>Simpan Folder</button>
 
-        function updateFolderName() {
-            const nameValue = nameInput.value.trim();
+<script>
+  const inputNama = document.getElementById('inputNama');
+  const folderPreview = document.getElementById('folderPreview');
+  const status = document.getElementById('status');
+  const saveBtn = document.getElementById('saveBtn');
 
-            // Ambil waktu sekarang
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = String(now.getFullYear()).slice(2); // 2 digit terakhir
-            const hour = String(now.getHours()).padStart(2, '0');
-            const minute = String(now.getMinutes()).padStart(2, '0');
+  const STORAGE_KEY = 'folderData';
+  const ONE_HOUR = 60 * 60 * 1000;
 
-            const dateValue = `${day}${month}${year}-${hour}${minute}`;
-            const folderName = nameValue ? `${nameValue}_${dateValue}` : '';
+  function saveFolderData(folders) {
+    const data = {
+      folders: folders,
+      savedAt: Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
 
-            folderNameSpan.textContent = folderName;
-        }
+  function loadFolderData() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      const data = JSON.parse(raw);
+      if (Date.now() - data.savedAt > ONE_HOUR) {
+        localStorage.removeItem(STORAGE_KEY);
+        return [];
+      }
+      return data.folders || [];
+    } catch {
+      return [];
+    }
+  }
 
-        // Update setiap kali ketik atau waktu berubah
-        nameInput.addEventListener('input', updateFolderName);
-        setInterval(updateFolderName, 1000); // perbarui tiap detik
-    </script>
+  function getDateString() {
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = String(now.getFullYear()).slice(2);
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return `${d}${m}${y}-${h}${min}`;
+  }
+
+  function updatePreviewAndStatus() {
+    const nama = inputNama.value.trim();
+    if (!nama) {
+      folderPreview.textContent = '';
+      status.textContent = '';
+      saveBtn.disabled = true;
+      return;
+    }
+
+    const dateStr = getDateString();
+    const namafolder = `${nama}_${dateStr}`;
+    folderPreview.textContent = `Nanti nama foldernya jadi: ${namafolder}`;
+
+    const folders = loadFolderData();
+
+    if (folders.includes(namafolder)) {
+      status.textContent = '⚠️ Folder sudah ada!';
+      status.style.color = 'red';
+      saveBtn.disabled = true;
+    } else {
+      status.textContent = '✅ Folder tersedia';
+      status.style.color = 'green';
+      saveBtn.disabled = false;
+    }
+  }
+
+  saveBtn.addEventListener('click', () => {
+    const nama = inputNama.value.trim();
+    if (!nama) return;
+    const dateStr = getDateString();
+    const namafolder = `${nama}_${dateStr}`;
+
+    let folders = loadFolderData();
+    if (!folders.includes(namafolder)) {
+      folders.push(namafolder);
+      saveFolderData(folders);
+      alert(`Folder "${namafolder}" berhasil disimpan!`);
+      inputNama.value = '';
+      updatePreviewAndStatus();
+    }
+  });
+
+  inputNama.addEventListener('input', updatePreviewAndStatus);
+  setInterval(updatePreviewAndStatus, 1000);
+
+  updatePreviewAndStatus();
+</script>
+
 </body>
 </html>
