@@ -1,63 +1,60 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Nama Folder Real-time</title>
+    <title>Home</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            padding: 20px;
         }
         input {
             padding: 5px;
-            font-size: 16px;
+            font-size: 14px;
+            margin-bottom: 10px;
         }
-        #output {
-            margin-top: 15px;
-            font-size: 18px;
+        p {
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        span {
             font-weight: bold;
             color: blue;
         }
     </style>
 </head>
 <body>
-
     <h2>Buat Nama Folder</h2>
-    <label for="inputNama">Masukkan Nama: </label>
-    <input type="text" id="inputNama" placeholder="Masukkan nama...">
+    <input type="text" id="nameInput" placeholder="Masukkan nama..." />
 
-    <div id="output"></div>
+    <p id="folderPreview">
+        nanti nama foldernya jadi : <span id="folderName"></span>
+    </p>
 
     <script>
-        const inputNama = document.getElementById("inputNama");
-        const output = document.getElementById("output");
+        const nameInput = document.getElementById('nameInput');
+        const folderNameSpan = document.getElementById('folderName');
 
-        // Fungsi untuk mendapatkan format date seperti 250824-1804
-        function getFormattedDateTime() {
+        function updateFolderName() {
+            const nameValue = nameInput.value.trim();
+
+            // Ambil waktu sekarang
             const now = new Date();
             const day = String(now.getDate()).padStart(2, '0');
             const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = String(now.getFullYear()).slice(-2);
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(2); // 2 digit terakhir
+            const hour = String(now.getHours()).padStart(2, '0');
+            const minute = String(now.getMinutes()).padStart(2, '0');
 
-            return `${day}${month}${year}-${hours}${minutes}`;
+            const dateValue = `${day}${month}${year}-${hour}${minute}`;
+            const folderName = nameValue ? `${nameValue}_${dateValue}` : '';
+
+            folderNameSpan.textContent = folderName;
         }
 
-        function updateNamaFolder() {
-            const nama = inputNama.value || "default";
-            const date = getFormattedDateTime();
-            const namafolder = `${nama}_${date}`;
-            output.textContent = namafolder;
-        }
-
-        // Update setiap kali ketik + setiap menit berubah
-        inputNama.addEventListener("input", updateNamaFolder);
-        setInterval(updateNamaFolder, 1000); // Update tiap detik biar real-time
-
-        // Jalankan pertama kali
-        updateNamaFolder();
+        // Update setiap kali ketik atau waktu berubah
+        nameInput.addEventListener('input', updateFolderName);
+        setInterval(updateFolderName, 1000); // perbarui tiap detik
     </script>
-
 </body>
 </html>
