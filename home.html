@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<body>
+    <h1 id="welcome"></h1>
+
+    <script>
+        const userName = localStorage.getItem('username');
+
+        if (userName) {
+            document.getElementById('welcome').textContent = `Selamat datang, ${userName}!`;
+        } else {
+            // Kalau belum login, kembalikan ke halaman login
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>
