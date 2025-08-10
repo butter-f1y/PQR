@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tambah QR ke PDF (kop + identitas sebelum QR)</title>
+
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:18px;}
+  label{display:block;margin:8px 0 4px;}
+  input[type="file"], input[type="text"]{width:100%;max-width:640px;padding:8px;}
+  button{margin-top:12px;padding:10px 14px;cursor:pointer;}
+  .note{margin-top:10px;color:#444;max-width:640px;}
+  .log{margin-top:8px;color:#0a0;font-weight:600;}
+  .err{color:#b00;}
+</style>
+
+<!-- pdf-lib -->
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+<!-- pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+<!-- qrcode -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+</head>
+<body>
+  <h2>Tambah QR ke PDF (kop + identitas sebelum QR)</h2>
+
+  <label>Pilih file PDF</label>
+  <input type="file" id="pdfFile" accept="application/pdf">
+
+  <label>Masukkan link (akan diubah jadi QR)</label>
+  <input type="text" id="linkInput" placeholder="https://example.com">
+
+  <button id="goBtn">Proses & Download</button>
+
+  <button id="openBtn" style="display:none;">Buka di Tab Baru</button>
+
+  <div class="note">
+    Jika area bawah halaman terakhir kosong → QR ditempel di halaman terakhir.  
+    Jika tidak cukup → halaman baru ditambahkan, bagian atas halaman terakhir (sebelum "Hasil Pemeriksaan") disalin ke halaman baru lalu QR ditempatkan di bawahnya.
+  </div>
+
+  <div id="status" class="log" aria-live="polite"></div>
+
+<script>
+(async () => {
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+  }
+
+  const btn = document.getElementById('goBtn');
+  const statusEl = document.getElementById('status');
+
+  function setStatus(msg, isErr = false) {
+    statusEl.textContent = msg;
+    statusEl.className = isErr ? 'err' : 'log';
+  }
+
+  // Parameters (points = PDF points)
+  const QR_POINTS = 100;           // ukuran QR di PDF points (100pt)
+  const TEXT_FONT_SIZE = 12;      // ukuran font untuk teks
+  const GAP_POINTS = 8;           // jarak antara teks dan QR
+  const TOTAL_NEEDED_POINTS = QR_POINTS + TEXT_FONT_SIZE + GAP_POINTS + 10; // ruang yang dibutuhkan di bawah
+  const RENDER_SCALE = 1.5; // pixels per PDF point
+
+  btn.addEventListener('click', async () => {
+    setStatus('Mulai proses...');
+    try {
+      const fileInput = document.getElementById('pdfFile');
+      const link = document.getElementById('linkInput').value.trim();
+
+      if (!fileInput.files.length || !link) {
+        setStatus('Pilih PDF dan masukkan link dulu.', true);
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const originalNameNoExt = file.name.replace(/\.pdf$/i, '') || 'output';
+
+      // 1) generate QR dataURL (100px)
+      setStatus('Membuat QR code...');
+      const qrDataUrl = await QRCode.toDataURL(link, { width: 100, margin: 0 });
+
+      // 2) load PDF bytes (ArrayBuffer)
+      setStatus('Membaca PDF...');
+      const arrayBuffer = await file.arrayBuffer();
+
+      // 3) use pdf.js to render last page for pixel-sampling and text extraction
+      if (!window.pdfjsLib) throw new Error('pdf.js tidak ditemukan.');
+
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdfJsDoc = await loadingTask.promise;
+      const lastPageNumber = pdfJsDoc.numPages;
+      setStatus(`Render halaman terakhir (${lastPageNumber}) untuk cek ruang...`);
+
+      const page = await pdfJsDoc.getPage(lastPageNumber);
+
+      // viewport untuk render (pixels)
+      const viewportRender = page.getViewport({ scale: RENDER_SCALE }); // pixels = points * scale
+      // viewport untuk ukuran points (scale = 1)
+      const viewportPoints = page.getViewport({ scale: 1 });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(viewportRender.width);
+      canvas.height = Math.floor(viewportRender.height);
+      const ctx = canvas.getContext('2d');
+
+      await page.render({ canvasContext: ctx, viewport: viewportRender }).promise;
+
+      // 4) sample bottom area pixels to see if mostly blank (white)
+      const neededPixels = Math.ceil(TOTAL_NEEDED_POINTS * RENDER_SCALE);
+      const sampleHeight = Math.min(neededPixels, canvas.height);
+      const sampleY = canvas.height - sampleHeight; // start Y for sampling (from top)
+      const sampleW = canvas.width;
+
+      const imageData = ctx.getImageData(0, sampleY, sampleW, sampleHeight);
+      const data = imageData.data;
+      let nonWhiteCount = 0;
+      const totalPixels = sampleW * sampleHeight;
+      const threshold = 240;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+        if (a === 0) continue;
+        if (r < threshold || g < threshold || b < threshold) nonWhiteCount++;
+      }
+      const nonWhiteRatio = nonWhiteCount / totalPixels;
+      const BLANK_RATIO_THRESHOLD = 0.02;
+      const isBlank = nonWhiteRatio <= BLANK_RATIO_THRESHOLD;
+
+      setStatus(`Hasil pemeriksaan: area bawah ${isBlank ? 'kosong → akan menempel di halaman terakhir' : 'tidak kosong → akan dibuat halaman baru'}. (area non-putih: ${(nonWhiteRatio*100).toFixed(2)}%)`);
+
+      // 5) load PDF into pdf-lib to modify
+      setStatus('Memuat PDF untuk penyisipan QR (pdf-lib)...');
+      const pdfLibDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+
+      // embed QR image (png)
+      const qrArrayBuffer = await (await fetch(qrDataUrl)).arrayBuffer();
+      const qrImage = await pdfLibDoc.embedPng(qrArrayBuffer);
+
+      // embed font for text
+      const helveticaFont = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+      // Decide target page: last page or new page
+      let targetPage;
+      const pages = pdfLibDoc.getPages();
+      const lastPdfPage = pages[pages.length -1];
+
+      if (isBlank) {
+        // use existing last page
+        targetPage = lastPdfPage;
+      } else {
+        // add new page with same size as existing last page
+        const { width: lastW, height: lastH } = lastPdfPage.getSize();
+        targetPage = pdfLibDoc.addPage([ lastW, lastH ]);
+
+        // Find position of "Hasil Pemeriksaan" (case-insensitive)
+        const textContent = await page.getTextContent();
+        let hasilY_points = null;
+        for (const item of textContent.items) {
+          if (item.str && item.str.toLowerCase().includes('hasil pemeriksaan :')) {
+            // item.transform[5] is the y position in PDF points (user space)
+            hasilY_points = item.transform[5];
+            break;
+          }
+        }
+
+        if (hasilY_points !== null) {
+          // page size in PDF points (should match pdf-lib page size)
+          const pageWidthPt = viewportPoints.width;
+          const pageHeightPt = viewportPoints.height;
+
+          // Height (points) of the top area we want to keep = distance from top to just above "Hasil Pemeriksaan"
+          // In PDF coords, top distance = pageHeightPt - y_of_item
+          let topHeightPoints = pageHeightPt - hasilY_points;
+
+          // Ensure there is room below for QR; if not, shrink the topHeightPoints so QR fits
+          const neededSpacePoints = TOTAL_NEEDED_POINTS;
+          const gapBuffer = 10; // sedikit buffer
+          const maxTopAllowed = pageHeightPt - neededSpacePoints - gapBuffer;
+          if (topHeightPoints > maxTopAllowed) {
+            topHeightPoints = Math.max(30, maxTopAllowed); // jangan jadikan sangat kecil; minimal 30pt
+          }
+
+          const topHeightPx = Math.ceil(topHeightPoints * RENDER_SCALE);
+
+          // Crop top area from rendered canvas (top = y=0)
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = canvas.width;
+          cropCanvas.height = topHeightPx;
+          const cropCtx = cropCanvas.getContext('2d');
+
+          // source x,y,width,height on the rendered canvas = (0, 0, canvas.width, topHeightPx)
+          cropCtx.drawImage(canvas, 0, 0, canvas.width, topHeightPx, 0, 0, canvas.width, topHeightPx);
+
+          const croppedDataUrl = cropCanvas.toDataURL('image/png');
+          const croppedArrayBuffer = await (await fetch(croppedDataUrl)).arrayBuffer();
+          const croppedImage = await pdfLibDoc.embedPng(croppedArrayBuffer);
+
+          // Place the cropped image at the top of the new page (pdf-lib coords: origin bottom-left)
+          targetPage.drawImage(croppedImage, {
+            x: 0,
+            y: pageHeightPt - topHeightPoints,
+            width: pageWidthPt,
+            height: topHeightPoints
+          });
+        }
+      }
+
+      // compute coordinates (pdf-lib uses points; origin bottom-left) for QR/text on targetPage
+      const { width: pageW, height: pageH } = targetPage.getSize();
+      const bottomMargin = 20;
+      const qrPoints = QR_POINTS; // 100
+      const qrX = (pageW - qrPoints) / 2;
+      const qrY = bottomMargin;
+
+      const text = "Scan Untuk Melihat/Mengunduh Hasil Foto";
+      const textSize = TEXT_FONT_SIZE;
+      const textWidth = helveticaFont.widthOfTextAtSize(text, textSize);
+      const textX = (pageW - textWidth) / 2;
+      const textY = qrY + qrPoints + GAP_POINTS;
+
+      // draw text then image
+      targetPage.drawText(text, {
+        x: textX,
+        y: textY,
+        size: textSize,
+        font: helveticaFont,
+        color: PDFLib.rgb(0,0,0)
+      });
+
+      targetPage.drawImage(qrImage, {
+        x: qrX,
+        y: qrY,
+        width: qrPoints,
+        height: qrPoints
+      });
+
+      // 6) save and download
+      setStatus('Menyimpan PDF...');
+
+      const pdfBytes = await pdfLibDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const a = document.createElement('a');
+      const pdfUrl = URL.createObjectURL(blob);
+
+      // Untuk mendownload file
+      a.href = pdfUrl;
+      a.download = originalNameNoExt + '_with_qr.pdf';
+      a.click();
+
+      // Menampilkan tombol "Buka di Tab Baru"
+      const openBtn = document.getElementById('openBtn');
+      openBtn.style.display = 'inline-block';
+      openBtn.addEventListener('click', () => {
+        window.open(pdfUrl, '_blank');
+      });
+
+      setStatus('Selesai. File terunduh.', false);
+
+      // revoke object URL after some time
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 20000);
+    } catch (err) {
+      console.error(err);
+      setStatus('Gagal: ' + (err.message || err), true);
+    }
+  });
+})();
+</script>
+</body>
+</html>
