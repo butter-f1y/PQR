@@ -6,14 +6,39 @@
 </head>
 <body>
     <h1 id="welcome"></h1>
+    <p id="timer"></p>
+    <button onclick="logout()">Logout</button>
 
     <script>
-        const userName = localStorage.getItem('username');
+        const username = localStorage.getItem("username");
+        const tokenExp = localStorage.getItem("token_exp");
 
-        if (userName) {
-            document.getElementById('welcome').textContent = `Selamat datang, ${userName}!`;
-        } else {
-            // Kalau belum login, kembalikan ke halaman login
+        // Jika tidak login atau token habis, kembali ke login
+        if (!username || !tokenExp || Date.now() / 1000 >= tokenExp) {
+            localStorage.clear();
+            window.location.href = "index.html";
+        }
+
+        document.getElementById("welcome").innerText = `Selamat datang, ${username}!`;
+
+        function updateTimer() {
+            const now = Date.now() / 1000;
+            const remaining = Math.max(0, tokenExp - now);
+            const minutes = Math.floor(remaining / 60);
+            const seconds = Math.floor(remaining % 60);
+            document.getElementById("timer").innerText =
+                `Sesi login berakhir dalam ${minutes} menit ${seconds} detik`;
+            if (remaining <= 0) {
+                alert("Sesi habis, silakan login lagi.");
+                logout();
+            }
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        function logout() {
+            localStorage.clear();
             window.location.href = "index.html";
         }
     </script>
